@@ -116,7 +116,7 @@ CMatrix get_gemed_matrix(CMatrix&& source_matrix)
 
 CMatrix get_gemed_matrix(const CMatrix& source_matrix)
 {
-	return get_gemed_matrix(std::move(CMatrix(source_matrix)));
+	return get_gemed_matrix(CMatrix(source_matrix));
 }
 
 int calculate_matrix_determinant(CMatrix&& source_matrix)
@@ -141,7 +141,7 @@ int calculate_matrix_determinant(CMatrix&& source_matrix)
 
 int calculate_matrix_determinant(const CMatrix& source_matrix)
 {
-	return calculate_matrix_determinant(std::move(CMatrix(source_matrix)));
+	return calculate_matrix_determinant(CMatrix(source_matrix));
 }
 
 int exit_on_invalid_args()
@@ -189,12 +189,12 @@ int main(int argc, char** argv)
 		if (*curr_arg == '-')
 		{
 			curr_arg++;
+		
+			if (isdigit(*curr_arg))
+				break;
 
 			if (*(curr_arg + 1))
 				return exit_on_invalid_args();
-			
-			if (isdigit(*curr_arg))
-				break;
 
 			switch (*curr_arg)
 			{

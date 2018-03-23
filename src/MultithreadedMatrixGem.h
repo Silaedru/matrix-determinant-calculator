@@ -32,7 +32,7 @@ private:
 public:
 	bool is_finished() const;
 	void stop();
-	void add_work(CMatrixRow* current_row, CMatrixRow* previous_row, matrix_member& current_coef);
+	void set_work(CMatrixRow* current_row, CMatrixRow* previous_row, const matrix_member& current_coef);
 
 	CSolver(unsigned int this_thread_num, unsigned int total_thread_count, matrix_size matrix_column_count);
 	~CSolver();

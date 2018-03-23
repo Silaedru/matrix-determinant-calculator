@@ -22,11 +22,11 @@ CSolver::CSolver(
 	const unsigned int total_thread_count, 
 	const matrix_size matrix_column_count)
 	: 
+	column_count(matrix_column_count),
+	finished(true), // solver starts with no work
 	thread_num(this_thread_num),
 	thread_count(total_thread_count),
-	finished(true), // solver starts with no work
 	run(true),
-	column_count(matrix_column_count),
 	worker_thread(std::thread(&CSolver::work, this))
 {
 }
@@ -42,11 +42,14 @@ CSolver::~CSolver()
 		worker_thread.join();
 }
 
-void CSolver::add_work(
+void CSolver::set_work(
 	CMatrixRow* current_row,
 	CMatrixRow* previous_row,
-	matrix_member& current_coef)
+	const matrix_member& current_coef)
 {
+	if (!this->finished)
+		throw matrix_exception("assigning new CSolver work when CSolver isn't finished");
+
 	std::lock_guard<std::mutex> lock(guard); // lock condition variable mutex 
 	this->current_coef = current_coef;
 	this->current_row = current_row;
@@ -83,13 +86,13 @@ void CSolver::work()
 	}
 }
 
-CMultithreadedMatrixGem::CMultithreadedMatrixGem(CMatrix&& source_matrix) : matrix(std::move(source_matrix)), result_computed(false), sync_wait_time(0)
+CMultithreadedMatrixGem::CMultithreadedMatrixGem(CMatrix&& source_matrix) : result_computed(false), sync_wait_time(0), matrix(std::move(source_matrix))
 {
 	// don't make more threads than there is matrix columns
 	num_threads = (unsigned int)std::min(std::max((int)std::thread::hardware_concurrency(), 1), (int)matrix.get_column_count());
 }
 
-CMultithreadedMatrixGem::CMultithreadedMatrixGem(const CMatrix& source_matrix) : CMultithreadedMatrixGem(std::move(CMatrix(source_matrix)))
+CMultithreadedMatrixGem::CMultithreadedMatrixGem(const CMatrix& source_matrix) : CMultithreadedMatrixGem(CMatrix(source_matrix))
 {
 }
 
@@ -142,8 +145,8 @@ void CMultithreadedMatrixGem::compute_result()
 
 	// create workers
 	std::vector<std::unique_ptr<CSolver>> solvers;
-	for (unsigned int i = 0; i < num_threads - 1; i++)
-		solvers.push_back(std::make_unique<CSolver>(i + 1, num_threads, matrix.get_column_count()));
+	for (unsigned int i = 1; i < num_threads; i++)
+		solvers.push_back(std::make_unique<CSolver>(i, num_threads, matrix.get_column_count()));
 
 	const matrix_size matrix_row_count = matrix.get_row_count();
 	const matrix_size matrix_column_count = matrix.get_column_count();
@@ -179,8 +182,8 @@ void CMultithreadedMatrixGem::compute_result()
 			matrix_member coef = previous_row >= matrix_column_count || div == 0 ? matrix_member(1) : (current_row_ptr->get_column(previous_row) / div);
 			
 			// assign work to workers
-			for (unsigned int thread_num = 1; thread_num < num_threads; thread_num++)
-				solvers[thread_num-1]->add_work(current_row_ptr, previous_row_ptr, coef);
+			for (auto& solver : solvers)
+				solver->set_work(current_row_ptr, previous_row_ptr, coef);
 			
 			// no point in just waiting - main thread will compute as well (as thread "0")
 			solve_row(current_row_ptr, previous_row_ptr, coef, matrix_column_count, 0, num_threads);
@@ -203,11 +206,9 @@ void CMultithreadedMatrixGem::compute_result()
 	time_value cleanup_start = get_current_time();
 	
 	// stop all workers
-	for (std::vector<std::unique_ptr<CSolver>>::iterator itt = solvers.begin(); itt != solvers.end(); itt = solvers.begin())
-		solvers.erase(itt); // unique ptr will get destroyed which will result in CSolver destructor call, which does the actual thread stopping and cleanup
+	solvers.clear(); // this will clear the std::vector of workers, which will result in unique ptrs being destroyed, which will result in CSolver destructor call, which does the actual thread stopping and cleanup
 
 	result_computed = true;
-	
 	time_value cleanup_finished_time = get_current_time();
 
 	setup_time = time_diff(computation_start, setup_start);

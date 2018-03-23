@@ -1,7 +1,7 @@
 #include "Matrix.h"
 #include "MatrixUtils.h"
 
-CMatrixRow::CMatrixRow(matrix_size column_count) : values(new matrix_member[column_count]), column_count(column_count)
+CMatrixRow::CMatrixRow(matrix_size column_count) : column_count(column_count), values(new matrix_member[column_count])
 {
 #ifdef MATRIX_INITIALIZATION_VALUE
 	for (matrix_size i = 0; i < column_count; i++)
@@ -9,7 +9,7 @@ CMatrixRow::CMatrixRow(matrix_size column_count) : values(new matrix_member[colu
 #endif
 }
 
-CMatrixRow::CMatrixRow(const CMatrixRow& original) : values(new matrix_member[original.get_column_count()]), column_count(original.get_column_count())
+CMatrixRow::CMatrixRow(const CMatrixRow& original) : column_count(original.get_column_count()), values(new matrix_member[original.get_column_count()])
 {
 	for (matrix_size i = 0; i < original.get_column_count(); i++)
 		values[i] = original.get_column(i);
@@ -61,7 +61,7 @@ CMatrixRow& CMatrixRow::operator/=(const matrix_member& val)
 	return (*this);
 }
 
-const matrix_member CMatrixRow::get_column(matrix_size column) const
+const matrix_member& CMatrixRow::get_column(matrix_size column) const
 {
 	if (column >= column_count)
 		throw std::out_of_range("column index out of range");
@@ -69,17 +69,17 @@ const matrix_member CMatrixRow::get_column(matrix_size column) const
 	return values[column];
 }
 
-const matrix_size CMatrixRow::get_column_count() const
+matrix_size CMatrixRow::get_column_count() const
 {
 	return column_count;
 }
 
-void CMatrixRow::set_value(matrix_size column, matrix_member value)
+void CMatrixRow::set_value(matrix_size column, const matrix_member& value)
 {
 	if (column >= column_count)
 		throw std::out_of_range("column index out of range");
 
-	values[column] = value;
+	values[column] = matrix_member(value);
 }
 
 CMatrix::CMatrix(matrix_size rows, matrix_size columns) : row_count(rows), swap_coefficient(1), rows(new CMatrixRow*[rows])
@@ -135,17 +135,17 @@ CMatrixRow* CMatrix::get_row(matrix_size row) const
 }
 
 
-const matrix_member CMatrix::get_value(matrix_size row, matrix_size column) const
+const matrix_member& CMatrix::get_value(matrix_size row, matrix_size column) const
 {
 	return get_row(row)->get_column(column);
 }
 
-const matrix_size CMatrix::get_row_count() const
+matrix_size CMatrix::get_row_count() const
 {
 	return row_count;
 }
 
-const matrix_size CMatrix::get_column_count() const
+matrix_size CMatrix::get_column_count() const
 {
 	if (this->get_row_count() == 0)
 		return 0;
@@ -153,7 +153,7 @@ const matrix_size CMatrix::get_column_count() const
 	return rows[0]->get_column_count();
 }
 
-void CMatrix::set_value(matrix_size row, matrix_size column, matrix_member value)
+void CMatrix::set_value(matrix_size row, matrix_size column, const matrix_member& value)
 {
 	this->get_row(row)->set_value(column, value);
 }
